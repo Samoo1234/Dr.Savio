@@ -1,0 +1,11 @@
+Este diretório é destinado para armazenar as imagens do site do Dr. Sávio Carmo.
+
+Sugestões de imagens a serem adicionadas:
+1. Foto profissional do Dr. Sávio Carmo
+2. Imagem de fundo para a seção hero (hero-bg.jpg)
+3. Fotos para a seção de serviços
+4. Fotos para a seção de depoimentos
+5. Ícones e logos
+
+Formatos recomendados: JPG, PNG, SVG
+Resolução recomendada: Imagens em alta resolução (mínimo 1920px de largura para imagens de fundo)

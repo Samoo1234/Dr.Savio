@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 241, 245, 249;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: var(--font-inter);
+}
+
+.hero-section {
+  background-image: linear-gradient(to right, rgba(0, 40, 70, 0.8), rgba(0, 40, 70, 0.4)), url('/images/pessoal.png');
+  background-size: cover;
+  background-position: center 30%;
+  position: relative;
+}
+
+.section-transition {
+  transition: all 0.5s ease-in-out;
+}
+
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-md transition-all duration-300 ease-in-out;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-100 text-primary-600 border border-primary-600 font-medium py-2 px-6 rounded-md transition-all duration-300 ease-in-out;
+  }
+  
+  .section-title {
+    @apply text-3xl md:text-4xl font-bold text-secondary-800 mb-4;
+  }
+  
+  .section-subtitle {
+    @apply text-xl text-secondary-600 mb-8 max-w-2xl mx-auto;
+  }
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.5s ease-in-out;
+}
+
+.slide-down {
+  animation: slideDown 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  0% { transform: translateY(-20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
