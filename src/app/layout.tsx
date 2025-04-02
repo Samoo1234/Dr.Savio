@@ -2,7 +2,6 @@ import '../styles/globals.css';
 import { Inter, Merriweather } from 'next/font/google';
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
-import { Toaster } from 'react-hot-toast';
 
 // Importar o AttributeRemover com SSR desativado para evitar problemas de hidratação
 const AttributeRemover = dynamic(
@@ -13,6 +12,12 @@ const AttributeRemover = dynamic(
 // Importar o AuthProvider com SSR desativado para evitar problemas de hidratação
 const AuthProviderClient = dynamic(
   () => import('../components/AuthProviderClient'),
+  { ssr: false }
+);
+
+// Importar o Toaster com SSR desativado para evitar problemas de hidratação
+const ToasterClient = dynamic(
+  () => import('../components/ToasterClient'),
   { ssr: false }
 );
 
@@ -52,7 +57,7 @@ export default function RootLayout({
         <AuthProviderClient>
           {children}
         </AuthProviderClient>
-        <Toaster position="top-right" />
+        <ToasterClient />
       </body>
     </html>
   );

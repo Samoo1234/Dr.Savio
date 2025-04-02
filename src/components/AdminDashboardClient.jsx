@@ -1,6 +1,6 @@
 "use client";
 
-import { FaUsers, FaCalendarAlt, FaComments, FaChartLine, FaEye } from 'react-icons/fa';
+import { FaUsers, FaCalendarAlt, FaComments, FaChartLine, FaEye, FaSync } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
@@ -25,6 +25,12 @@ const AdminDashboardClient = () => {
   const [error, setError] = useState(null);
   const [usedCache, setUsedCache] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Verificar se o componente está montado no cliente
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Função para buscar dados com economia extrema de leituras
   const fetchData = async (forceRefresh = false) => {
@@ -156,11 +162,13 @@ const AdminDashboardClient = () => {
 
   // Carregar dados ao montar o componente
   useEffect(() => {
-    fetchData();
-    
-    // Não configurar atualizações automáticas para economizar leituras
-    // O usuário pode atualizar manualmente se necessário
-  }, []);
+    if (isMounted) {
+      fetchData();
+      
+      // Não configurar atualizações automáticas para economizar leituras
+      // O usuário pode atualizar manualmente se necessário
+    }
+  }, [isMounted]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -204,6 +212,29 @@ const AdminDashboardClient = () => {
       return '';
     }
   };
+
+  // Renderizar um esqueleto de carregamento se estiver no servidor ou carregando
+  if (!isMounted) {
+    return (
+      <div className="p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+        <div className="animate-pulse">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow-md p-6 h-32"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white rounded-lg shadow-md p-6 h-96"></div>
+            <div className="bg-white rounded-lg shadow-md p-6 h-96"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Se estiver carregando, mostrar indicador de carregamento
   if (isLoading) {
