@@ -5,28 +5,25 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FaUser, FaLock, FaArrowLeft } from 'react-icons/fa';
 import { loginWithEmailAndPassword } from '../../lib/auth';
+import ClientOnly from '../../components/ClientOnly';
+import { useAuth } from '../../components/AuthProvider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Verificar se o usuário já está autenticado ao carregar a página
+  // Redirecionamento usando useEffect para evitar erros de renderização
   useEffect(() => {
-    const checkAuth = () => {
-      const isAuth = localStorage.getItem('isAuthenticated') === 'true';
-      if (isAuth) {
-        router.push('/admin');
-      }
-    };
-    
-    // Pequeno atraso para garantir que o localStorage esteja disponível
-    setTimeout(checkAuth, 100);
-  }, [router]);
+    if (isAuthenticated && !isLoading) {
+      router.push('/admin');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -35,7 +32,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError('');
 
     try {
@@ -47,29 +44,39 @@ export default function LoginPage() {
 
       if (loginError) {
         setError(loginError);
-        setIsLoading(false);
+        setIsSubmitting(false);
         return;
       }
 
       if (user) {
-        // Armazenar informações de autenticação
-        localStorage.setItem('isAuthenticated', 'true');
-        
-        // Configurar um cookie para autenticação (usado pelo middleware)
-        document.cookie = "isAuthenticated=true; path=/; max-age=86400"; // expira em 1 dia
-        
-        router.push('/admin');
+        // Usar o método de login do contexto de autenticação
+        login();
+        // Não redirecionamos aqui, o useEffect cuidará disso
       }
     } catch (err) {
-      console.error('Erro durante login:', err);
+      console.error('Erro ao fazer login:', err);
       setError('Ocorreu um erro durante o login. Tente novamente.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  // Se estiver carregando, mostrar indicador de carregamento
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  // Se já estiver autenticado, não renderizar nada (o useEffect cuidará do redirecionamento)
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
-    <>
+    <ClientOnly>
       <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <Link href="/" className="flex items-center text-primary-600 hover:text-primary-700 mb-6 mx-auto w-fit">
@@ -111,7 +118,7 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Usuário
+                  Email
                 </label>
                 <div className="mt-1 relative rounded-md shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -126,7 +133,7 @@ export default function LoginPage() {
                     value={formData.email}
                     onChange={handleChange}
                     className="pl-10 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Seu email"
+                    placeholder="seu@email.com"
                   />
                 </div>
               </div>
@@ -176,10 +183,10 @@ export default function LoginPage() {
               <div>
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Entrando...' : 'Entrar'}
+                  {isSubmitting ? 'Entrando...' : 'Entrar'}
                 </button>
               </div>
             </form>
@@ -195,12 +202,14 @@ export default function LoginPage() {
               </div>
 
               <div className="mt-6 text-center text-xs text-gray-600">
-                <p>Use suas credenciais do Firebase Authentication para entrar.</p>
+                <p>Para fins de demonstração:</p>
+                <p className="mt-1">Email: <span className="font-semibold">admin@drsavio.com</span></p>
+                <p>Senha: <span className="font-semibold">admin123</span></p>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </ClientOnly>
   );
 }

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.16",
+    "date-fns": "^4.1.0",
     "firebase": "^11.6.0",
     "framer-motion": "^10.16.4",
     "mongoose": "^7.6.3",

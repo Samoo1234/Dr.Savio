@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { FaBars, FaBell, FaUser, FaSignOutAlt, FaCog } from 'react-icons/fa';
+import { useAuth } from '../../components/AuthProvider';
 
 const AdminHeader = () => {
   const router = useRouter();
+  const auth = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -21,14 +23,15 @@ const AdminHeader = () => {
   };
 
   const handleLogout = () => {
-    // Remover a autenticação
-    localStorage.removeItem('isAuthenticated');
-    
-    // Remover o cookie de autenticação
-    document.cookie = "isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    
-    // Redirecionar para a página de login
-    router.push('/login');
+    // Verificar se auth não é null antes de chamar logout
+    if (auth) {
+      auth.logout();
+    } else {
+      // Fallback caso o contexto de autenticação não esteja disponível
+      localStorage.removeItem('isAuthenticated');
+      document.cookie = "isAuthenticated=false; path=/; max-age=0";
+      router.push('/');
+    }
   };
 
   return (

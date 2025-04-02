@@ -3,7 +3,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { 
   getFirestore, 
-  enableIndexedDbPersistence, 
   CACHE_SIZE_UNLIMITED,
   initializeFirestore,
   persistentLocalCache,
@@ -39,23 +38,11 @@ const db = initializeFirestore(firebaseApp, {
   })
 });
 
-// Tentar habilitar persistência para funcionamento offline
-// Isso reduz drasticamente o número de leituras ao servidor
-try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Persistência não pôde ser ativada porque múltiplas abas estão abertas');
-    } else if (err.code === 'unimplemented') {
-      console.warn('O navegador atual não suporta todos os recursos necessários');
-    }
-  });
-} catch (error) {
-  console.warn('Erro ao configurar persistência:', error);
-}
+// Remover a chamada para enableIndexedDbPersistence que está causando o erro
+// A persistência já está configurada acima com persistentLocalCache
 
-// Inicializar Auth e Storage
+// Inicializar outros serviços do Firebase
 const auth = getAuth(firebaseApp);
 const storage = getStorage(firebaseApp);
 
-// Exportar instâncias
 export { db, auth, storage, firebaseApp };

@@ -9,6 +9,12 @@ const AttributeRemover = dynamic(
   { ssr: false }
 );
 
+// Importar o AuthProvider com SSR desativado para evitar problemas de hidratação
+const AuthProviderClient = dynamic(
+  () => import('../components/AuthProviderClient'),
+  { ssr: false }
+);
+
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
@@ -42,7 +48,9 @@ export default function RootLayout({
       </head>
       <body>
         <AttributeRemover />
-        {children}
+        <AuthProviderClient>
+          {children}
+        </AuthProviderClient>
       </body>
     </html>
   );
