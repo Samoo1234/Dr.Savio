@@ -9,6 +9,7 @@ export default function ContentEditPage() {
   const [activeTab, setActiveTab] = useState('hero');
 
   // Componente de edição de texto
+  // @ts-ignore
   const TextEditor = ({ label, defaultValue, placeholder, multiline = false }) => (
     <div className="mb-4">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
