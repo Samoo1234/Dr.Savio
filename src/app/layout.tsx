@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import { Inter, Merriweather } from 'next/font/google';
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
+import { Toaster } from 'react-hot-toast';
 
 // Importar o AttributeRemover com SSR desativado para evitar problemas de hidratação
 const AttributeRemover = dynamic(
@@ -51,6 +52,7 @@ export default function RootLayout({
         <AuthProviderClient>
           {children}
         </AuthProviderClient>
+        <Toaster position="top-right" />
       </body>
     </html>
   );

@@ -1,16 +1,182 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { FaSave, FaUndo, FaImage, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { db, storage } from '../../../lib/firebase';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { toast } from 'react-hot-toast';
 
 export default function ContentEditPage() {
   // Estado para controlar as abas
   const [activeTab, setActiveTab] = useState('hero');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [contentData, setContentData] = useState({
+    hero: {
+      title: '',
+      subtitle: '',
+      description: '',
+      primaryButtonText: '',
+      secondaryButtonText: '',
+      imageUrl: ''
+    },
+    about: {
+      title: '',
+      description: '',
+      imageUrl: ''
+    },
+    services: [],
+    testimonials: [],
+    contact: {
+      title: '',
+      description: '',
+      address: '',
+      neighborhood: '',
+      cityState: '',
+      zipCode: '',
+      schedule: '',
+      instagram: '',
+      facebook: '',
+      linkedin: ''
+    }
+  });
+  
+  // Refs para os elementos do formulário
+  const formRefs = {
+    hero: {
+      title: useRef(),
+      subtitle: useRef(),
+      description: useRef(),
+      primaryButtonText: useRef(),
+      secondaryButtonText: useRef()
+    },
+    about: {
+      title: useRef(),
+      description: useRef()
+    },
+    contact: {
+      title: useRef(),
+      description: useRef(),
+      address: useRef(),
+      neighborhood: useRef(),
+      cityState: useRef(),
+      zipCode: useRef(),
+      schedule: useRef(),
+      instagram: useRef(),
+      facebook: useRef(),
+      linkedin: useRef()
+    }
+  };
+
+  // Carregar dados do Firebase quando o componente montar
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        setIsLoading(true);
+        const contentDoc = await getDoc(doc(db, 'content', 'website'));
+        
+        if (contentDoc.exists()) {
+          setContentData(contentDoc.data());
+        } else {
+          // Se não existir, criar um documento com dados padrão
+          await setDoc(doc(db, 'content', 'website'), contentData);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar conteúdo:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchContent();
+  }, []);
+
+  // Função para salvar alterações
+  const saveChanges = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Coletar dados dos campos de formulário usando refs
+      const updatedData = {
+        ...contentData,
+        hero: {
+          ...contentData.hero,
+          title: formRefs.hero.title.current.value,
+          subtitle: formRefs.hero.subtitle.current.value,
+          description: formRefs.hero.description.current.value,
+          primaryButtonText: formRefs.hero.primaryButtonText.current.value,
+          secondaryButtonText: formRefs.hero.secondaryButtonText.current.value
+        },
+        about: {
+          ...contentData.about,
+          title: formRefs.about.title.current.value,
+          description: formRefs.about.description.current.value
+        },
+        contact: {
+          ...contentData.contact,
+          title: formRefs.contact.title.current.value,
+          description: formRefs.contact.description.current.value,
+          address: formRefs.contact.address.current.value,
+          neighborhood: formRefs.contact.neighborhood.current.value,
+          cityState: formRefs.contact.cityState.current.value,
+          zipCode: formRefs.contact.zipCode.current.value,
+          schedule: formRefs.contact.schedule.current.value,
+          instagram: formRefs.contact.instagram.current.value,
+          facebook: formRefs.contact.facebook.current.value,
+          linkedin: formRefs.contact.linkedin.current.value
+        }
+      };
+      
+      // Atualizar o estado local
+      setContentData(updatedData);
+      
+      // Salvar no Firebase
+      await updateDoc(doc(db, 'content', 'website'), updatedData);
+      
+      toast.success('Conteúdo salvo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar conteúdo:', error);
+      toast.error('Erro ao salvar conteúdo. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Função para fazer upload de imagem
+  const uploadImage = async (file, section) => {
+    try {
+      const storageRef = ref(storage, `website/${section}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Atualizar o estado com a nova URL da imagem
+      setContentData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          imageUrl: downloadURL
+        }
+      }));
+      
+      // Atualizar no Firebase
+      await updateDoc(doc(db, 'content', 'website'), {
+        [`${section}.imageUrl`]: downloadURL
+      });
+      
+      toast.success('Imagem enviada com sucesso!');
+      return downloadURL;
+    } catch (error) {
+      console.error('Erro ao fazer upload da imagem:', error);
+      toast.error('Erro ao fazer upload da imagem. Tente novamente.');
+      return null;
+    }
+  };
 
   // Componente de edição de texto
   // @ts-ignore
-  const TextEditor = ({ label, defaultValue, placeholder, multiline = false }) => (
+  const TextEditor = ({ label, defaultValue, placeholder, multiline = false, reference }) => (
     <div className="mb-4">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       {multiline ? (
@@ -19,6 +185,7 @@ export default function ContentEditPage() {
           rows={4}
           placeholder={placeholder}
           defaultValue={defaultValue}
+          ref={reference}
         />
       ) : (
         <input
@@ -26,49 +193,68 @@ export default function ContentEditPage() {
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           placeholder={placeholder}
           defaultValue={defaultValue}
+          ref={reference}
         />
       )}
     </div>
   );
 
   // Componente de imagem
-  const ImageEditor = ({ label, imageUrl }) => (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-      <div className="flex items-start space-x-4">
-        <div className="relative w-32 h-32 border border-gray-300 rounded-md overflow-hidden bg-gray-100">
-          {imageUrl ? (
-            <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
-          ) : (
-            <div className="flex items-center justify-center w-full h-full text-gray-400">
-              <FaImage size={24} />
-            </div>
-          )}
-        </div>
-        <div className="flex-1">
-          <div className="flex flex-col space-y-2">
-            <button
-              type="button"
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <FaImage className="mr-2" /> Escolher Imagem
-            </button>
-            {imageUrl && (
-              <button
-                type="button"
-                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                <FaTrash className="mr-2" /> Remover
-              </button>
+  const ImageEditor = ({ label, imageUrl, section }) => {
+    const fileInputRef = useRef(null);
+    
+    const handleImageClick = () => {
+      fileInputRef.current.click();
+    };
+    
+    const handleFileChange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await uploadImage(file, section);
+      }
+    };
+    
+    return (
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+        <div className="flex items-start space-x-4">
+          <div 
+            className="relative w-32 h-32 border border-gray-300 rounded-md overflow-hidden bg-gray-100 cursor-pointer"
+            onClick={handleImageClick}
+          >
+            {imageUrl ? (
+              <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full text-gray-400">
+                <FaImage size={24} />
+              </div>
             )}
           </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Recomendado: JPG, PNG. Máximo 2MB.
-          </p>
+          <div className="flex-1">
+            <div className="flex flex-col space-y-2">
+              <button
+                type="button"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                onClick={handleImageClick}
+              >
+                <FaImage className="mr-2" /> Selecionar Imagem
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+              <p className="text-xs text-gray-500">
+                Formatos aceitos: JPG, PNG. Tamanho máximo: 2MB
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Componente de serviço
   const ServiceItem = ({ service, index }) => (
@@ -190,6 +376,7 @@ export default function ContentEditPage() {
           <button
             type="button"
             className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+            onClick={saveChanges}
           >
             <FaSave className="mr-2" /> Salvar Alterações
           </button>
@@ -269,33 +456,38 @@ export default function ContentEditPage() {
             <div className="space-y-6">
               <TextEditor 
                 label="Título Principal" 
-                defaultValue="Dr. Sávio Cardoso" 
+                defaultValue={contentData.hero.title} 
                 placeholder="Ex: Dr. Sávio Cardoso" 
+                reference={formRefs.hero.title}
               />
               <TextEditor 
                 label="Subtítulo" 
-                defaultValue="Cardiologista e Clínico Geral" 
+                defaultValue={contentData.hero.subtitle} 
                 placeholder="Ex: Cardiologista e Clínico Geral" 
+                reference={formRefs.hero.subtitle}
               />
               <TextEditor 
                 label="Descrição" 
-                defaultValue="Atendimento humanizado e de excelência para cuidar da sua saúde cardiovascular." 
+                defaultValue={contentData.hero.description} 
                 placeholder="Breve descrição..." 
                 multiline 
+                reference={formRefs.hero.description}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <TextEditor 
                   label="Texto do Botão Principal" 
-                  defaultValue="Agendar Consulta" 
+                  defaultValue={contentData.hero.primaryButtonText} 
                   placeholder="Ex: Agendar Consulta" 
+                  reference={formRefs.hero.primaryButtonText}
                 />
                 <TextEditor 
                   label="Texto do Botão Secundário" 
-                  defaultValue="Saiba Mais" 
+                  defaultValue={contentData.hero.secondaryButtonText} 
                   placeholder="Ex: Saiba Mais" 
+                  reference={formRefs.hero.secondaryButtonText}
                 />
               </div>
-              <ImageEditor label="Imagem de Fundo" imageUrl="/images/hero-bg.jpg" />
+              <ImageEditor label="Imagem de Fundo" imageUrl={contentData.hero.imageUrl} section="hero" />
             </div>
           </motion.div>
         )}
@@ -315,15 +507,18 @@ export default function ContentEditPage() {
             <div className="space-y-6">
               <TextEditor 
                 label="Título da Seção" 
-                defaultValue="Sobre Dr. Sávio" 
+                defaultValue={contentData.about.title} 
                 placeholder="Ex: Sobre Dr. Sávio" 
+                reference={formRefs.about.title}
               />
               <TextEditor 
                 label="Subtítulo" 
-                defaultValue="Conheça mais sobre minha trajetória e compromisso com a saúde e bem-estar dos meus pacientes" 
+                defaultValue={contentData.about.description} 
                 placeholder="Breve descrição da seção..." 
+                multiline 
+                reference={formRefs.about.description}
               />
-              <ImageEditor label="Foto do Dr. Sávio" imageUrl="/images/doctor.jpg" />
+              <ImageEditor label="Foto do Dr. Sávio" imageUrl={contentData.about.imageUrl} section="about" />
               <TextEditor 
                 label="Título do Conteúdo" 
                 defaultValue="Excelência e humanização em saúde" 
@@ -483,41 +678,48 @@ Mantenho-me constantemente atualizado com as mais recentes pesquisas e avanços 
                   <h3 className="font-medium text-gray-800 mb-3">Informações de Contato</h3>
                   <TextEditor 
                     label="Telefone" 
-                    defaultValue="(11) 3456-7890" 
+                    defaultValue={contentData.contact.address} 
                     placeholder="Ex: (11) 3456-7890" 
+                    reference={formRefs.contact.address}
                   />
                   <TextEditor 
                     label="WhatsApp" 
-                    defaultValue="(11) 98765-4321" 
+                    defaultValue={contentData.contact.neighborhood} 
                     placeholder="Ex: (11) 98765-4321" 
+                    reference={formRefs.contact.neighborhood}
                   />
                   <TextEditor 
                     label="Email" 
-                    defaultValue="contato@drsavio.com.br" 
+                    defaultValue={contentData.contact.cityState} 
                     placeholder="Ex: contato@drsavio.com.br" 
+                    reference={formRefs.contact.cityState}
                   />
                 </div>
                 <div>
                   <h3 className="font-medium text-gray-800 mb-3">Endereço do Consultório</h3>
                   <TextEditor 
                     label="Endereço" 
-                    defaultValue="Av. Paulista, 1000, Conjunto 101" 
-                    placeholder="Ex: Av. Paulista, 1000" 
+                    defaultValue={contentData.contact.zipCode} 
+                    placeholder="Ex: Av. Paulista, 1000, Conjunto 101" 
+                    reference={formRefs.contact.zipCode}
                   />
                   <TextEditor 
                     label="Bairro" 
-                    defaultValue="Bela Vista" 
+                    defaultValue={contentData.contact.schedule} 
                     placeholder="Ex: Bela Vista" 
+                    reference={formRefs.contact.schedule}
                   />
                   <TextEditor 
                     label="Cidade/UF" 
-                    defaultValue="São Paulo - SP" 
+                    defaultValue={contentData.contact.instagram} 
                     placeholder="Ex: São Paulo - SP" 
+                    reference={formRefs.contact.instagram}
                   />
                   <TextEditor 
                     label="CEP" 
-                    defaultValue="01310-100" 
+                    defaultValue={contentData.contact.facebook} 
                     placeholder="Ex: 01310-100" 
+                    reference={formRefs.contact.facebook}
                   />
                 </div>
               </div>
@@ -526,10 +728,10 @@ Mantenho-me constantemente atualizado com as mais recentes pesquisas e avanços 
                 <h3 className="font-medium text-gray-800 mb-3">Horário de Atendimento</h3>
                 <TextEditor 
                   label="Horários" 
-                  defaultValue="Segunda a Sexta: 8h às 18h
-Sábados: 8h às 12h" 
+                  defaultValue={contentData.contact.linkedin} 
                   placeholder="Liste seus horários de atendimento..." 
                   multiline 
+                  reference={formRefs.contact.linkedin}
                 />
               </div>
               
@@ -537,18 +739,21 @@ Sábados: 8h às 12h"
                 <h3 className="font-medium text-gray-800 mb-3">Redes Sociais</h3>
                 <TextEditor 
                   label="Instagram" 
-                  defaultValue="@drsaviocardoso" 
+                  defaultValue={contentData.contact.title} 
                   placeholder="Ex: @drsaviocardoso" 
+                  reference={formRefs.contact.title}
                 />
                 <TextEditor 
                   label="Facebook" 
-                  defaultValue="facebook.com/drsaviocardoso" 
+                  defaultValue={contentData.contact.description} 
                   placeholder="Ex: facebook.com/drsaviocardoso" 
+                  reference={formRefs.contact.description}
                 />
                 <TextEditor 
                   label="LinkedIn" 
-                  defaultValue="linkedin.com/in/drsaviocardoso" 
+                  defaultValue={contentData.contact.address} 
                   placeholder="Ex: linkedin.com/in/drsaviocardoso" 
+                  reference={formRefs.contact.address}
                 />
               </div>
             </div>
