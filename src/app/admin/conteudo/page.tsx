@@ -9,7 +9,14 @@ export default function ContentEditPage() {
   const [activeTab, setActiveTab] = useState('hero');
 
   // Componente de edição de texto
-  const TextEditor = ({ label, defaultValue, placeholder, multiline = false }) => (
+  interface TextEditorProps {
+    label: string;
+    defaultValue?: string;
+    placeholder?: string;
+    multiline?: boolean;
+  }
+
+  const TextEditor = ({ label, defaultValue, placeholder, multiline = false }: TextEditorProps) => (
     <div className="mb-4">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       {multiline ? (
@@ -30,8 +37,13 @@ export default function ContentEditPage() {
     </div>
   );
 
-  // Componente de upload de imagem
-  const ImageUploader = ({ label, imageUrl }) => (
+  // Componente de imagem
+  interface ImageEditorProps {
+    label: string;
+    imageUrl?: string;
+  }
+
+  const ImageEditor = ({ label, imageUrl }: ImageEditorProps) => (
     <div className="mb-6">
       <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
       <div className="flex items-start space-x-4">
@@ -59,8 +71,26 @@ export default function ContentEditPage() {
     </div>
   );
 
-  // Componente de edição de serviço
-  const ServiceEditor = ({ service, index }) => (
+  // Interfaces para os dados
+  interface Service {
+    id?: string;
+    title: string;
+    description: string;
+    icon?: string;
+    image?: string;
+  }
+
+  interface Testimonial {
+    id?: string;
+    name: string;
+    role: string;
+    content: string;
+    image?: string;
+    rating: number;
+  }
+
+  // Componente de serviço
+  const ServiceItem = ({ service, index }: { service: Service; index: number }) => (
     <div className="bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-200">
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-medium text-gray-800">Serviço #{index + 1}</h4>
@@ -91,8 +121,8 @@ export default function ContentEditPage() {
     </div>
   );
 
-  // Componente de edição de depoimento
-  const TestimonialEditor = ({ testimonial, index }) => (
+  // Componente de depoimento
+  const TestimonialItem = ({ testimonial, index }: { testimonial: Testimonial; index: number }) => (
     <div className="bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-200">
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-medium text-gray-800">Depoimento #{index + 1}</h4>
@@ -123,12 +153,12 @@ export default function ContentEditPage() {
           ))}
         </div>
       </div>
-      <ImageUploader label="Foto do Paciente" imageUrl={testimonial.image} />
+      <ImageEditor label="Foto do Paciente" imageUrl={testimonial.image} />
     </div>
   );
 
   // Dados fictícios para os serviços
-  const services = [
+  const services: Service[] = [
     {
       title: "Cardiologia",
       icon: "heart",
@@ -147,7 +177,7 @@ export default function ContentEditPage() {
   ];
 
   // Dados fictícios para os depoimentos
-  const testimonials = [
+  const testimonials: Testimonial[] = [
     {
       name: "Ana Silva",
       role: "Paciente",
@@ -244,7 +274,7 @@ export default function ContentEditPage() {
                   placeholder="Ex: Saiba Mais" 
                 />
               </div>
-              <ImageUploader label="Imagem de Fundo" imageUrl="/images/hero-bg.jpg" />
+              <ImageEditor label="Imagem de Fundo" imageUrl="/images/hero-bg.jpg" />
             </motion.div>
           )}
 
@@ -266,7 +296,7 @@ export default function ContentEditPage() {
                 defaultValue="Conheça mais sobre minha trajetória e compromisso com a saúde e bem-estar dos meus pacientes" 
                 placeholder="Breve descrição da seção..." 
               />
-              <ImageUploader label="Foto do Dr. Sávio" imageUrl="/images/doctor.jpg" />
+              <ImageEditor label="Foto do Dr. Sávio" imageUrl="/images/doctor.jpg" />
               <TextEditor 
                 label="Título do Conteúdo" 
                 defaultValue="Excelência e humanização em saúde" 
@@ -319,7 +349,7 @@ export default function ContentEditPage() {
               
               <div className="mt-6 space-y-4">
                 {services.map((service, index) => (
-                  <ServiceEditor key={index} service={service} index={index} />
+                  <ServiceItem key={index} service={service} index={index} />
                 ))}
               </div>
             </motion.div>
@@ -351,7 +381,7 @@ export default function ContentEditPage() {
               
               <div className="mt-6 space-y-4">
                 {testimonials.map((testimonial, index) => (
-                  <TestimonialEditor key={index} testimonial={testimonial} index={index} />
+                  <TestimonialItem key={index} testimonial={testimonial} index={index} />
                 ))}
               </div>
             </motion.div>
