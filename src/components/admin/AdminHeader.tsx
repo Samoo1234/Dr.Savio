@@ -1,8 +1,12 @@
+"use client";
+
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FaBars, FaBell, FaUser, FaSignOutAlt, FaCog } from 'react-icons/fa';
 
 const AdminHeader = () => {
+  const router = useRouter();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -14,6 +18,17 @@ const AdminHeader = () => {
   const toggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     if (isProfileMenuOpen) setIsProfileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    // Remover a autenticação
+    localStorage.removeItem('isAuthenticated');
+    
+    // Remover o cookie de autenticação
+    document.cookie = "isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    
+    // Redirecionar para a página de login
+    router.push('/login');
   };
 
   return (
@@ -108,13 +123,13 @@ const AdminHeader = () => {
                   Configurações
                 </Link>
                 <div className="border-t border-gray-100"></div>
-                <Link 
-                  href="/admin/logout" 
-                  className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"
                 >
                   <FaSignOutAlt className="mr-2" />
                   Sair
-                </Link>
+                </button>
               </div>
             )}
           </div>

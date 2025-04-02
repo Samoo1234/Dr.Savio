@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaEnvelope, FaEnvelopeOpen, FaTrash, FaReply, FaStar, FaArchive, FaExclamationCircle } from 'react-icons/fa';

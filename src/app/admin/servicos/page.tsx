@@ -1,65 +1,165 @@
-import { useState } from 'react';
+"use client";
+
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaUndo, FaEye } from 'react-icons/fa';
 import DataTable from '../../../components/admin/DataTable';
+import { db } from '../../../lib/firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { createServicesCollection } from '../../../scripts/createServicesCollection';
 
 export default function ServicesPage() {
   // Estado para controlar o modal de edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentService, setCurrentService] = useState(null);
-  
-  // Dados fictícios para os serviços
-  const services = [
-    {
-      id: 1,
-      title: "Cardiologia",
-      icon: "heart",
-      description: "Avaliação e tratamento completo para saúde cardiovascular, incluindo exames preventivos e acompanhamento personalizado.",
-      active: true,
-      featured: true
-    },
-    {
-      id: 2,
-      title: "Neurologia",
-      icon: "brain",
-      description: "Diagnóstico e tratamento de condições neurológicas com abordagem moderna e humanizada para melhorar sua qualidade de vida.",
-      active: true,
-      featured: false
-    },
-    {
-      id: 3,
-      title: "Clínica Geral",
+  const [services, setServices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Carregar serviços do Firebase ao montar o componente
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setIsLoading(true);
+        const servicesCollection = collection(db, 'services');
+        const servicesQuery = query(servicesCollection, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(servicesQuery);
+
+        const servicesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setServices(servicesData);
+        setError(null);
+      } catch (err) {
+        console.error('Erro ao carregar serviços:', err);
+        setError('Falha ao carregar os serviços. Por favor, tente novamente.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
+
+  // Função para abrir o modal de edição
+  const handleEdit = (service) => {
+    setCurrentService(service);
+    setIsModalOpen(true);
+  };
+
+  // Função para abrir o modal de criação
+  const handleCreate = () => {
+    setCurrentService({
+      id: null,
+      title: "",
       icon: "user-md",
-      description: "Atendimento médico abrangente para todas as idades, com foco na prevenção e promoção da saúde integral.",
-      active: true,
-      featured: true
-    },
-    {
-      id: 4,
-      title: "Check-up Completo",
-      icon: "stethoscope",
-      description: "Avaliação detalhada do seu estado de saúde com exames completos e orientações personalizadas para prevenção.",
+      description: "",
       active: true,
       featured: false
-    },
-    {
-      id: 5,
-      title: "Telemedicina",
-      icon: "hospital",
-      description: "Consultas online com a mesma qualidade do atendimento presencial, proporcionando comodidade e acessibilidade.",
-      active: true,
-      featured: false
-    },
-    {
-      id: 6,
-      title: "Acompanhamento",
-      icon: "notes-medical",
-      description: "Monitoramento contínuo da sua saúde com planos de tratamento ajustados às suas necessidades específicas.",
-      active: false,
-      featured: false
+    });
+    setIsModalOpen(true);
+  };
+
+  // Função para fechar o modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setCurrentService(null);
+  };
+
+  // Função para salvar o serviço no Firebase
+  const handleSave = async () => {
+    try {
+      // Validar campos obrigatórios
+      if (!currentService || !currentService.title || !currentService.description) {
+        alert('Por favor, preencha o título e a descrição do serviço.');
+        return;
+      }
+
+      // Preparar dados para salvar
+      const serviceData = {
+        title: currentService.title,
+        icon: currentService.icon,
+        description: currentService.description,
+        active: currentService.active,
+        featured: currentService.featured,
+        updatedAt: serverTimestamp()
+      };
+
+      if (currentService.id) {
+        // Atualizar serviço existente
+        const serviceRef = doc(db, 'services', currentService.id);
+        await updateDoc(serviceRef, serviceData);
+
+        // Atualizar estado local
+        setServices(services.map(service => 
+          service.id === currentService.id ? { ...service, ...serviceData } : service
+        ));
+
+        console.log('Serviço atualizado com sucesso!');
+      } else {
+        // Adicionar novo serviço
+        serviceData.createdAt = serverTimestamp();
+
+        try {
+          // Tentar adicionar o documento
+          const docRef = await addDoc(collection(db, 'services'), serviceData);
+
+          // Adicionar ao estado local
+          const newService = {
+            id: docRef.id,
+            ...serviceData,
+            createdAt: new Date() // Representação local para exibição imediata
+          };
+
+          setServices([newService, ...services]);
+          console.log('Serviço adicionado com sucesso!');
+        } catch (error) {
+          // Se falhar, tentar criar a coleção primeiro e depois adicionar o documento
+          console.log('Tentando criar a coleção services primeiro...');
+          await createServicesCollection();
+
+          // Tentar adicionar o documento novamente
+          const docRef = await addDoc(collection(db, 'services'), serviceData);
+
+          // Adicionar ao estado local
+          const newService = {
+            id: docRef.id,
+            ...serviceData,
+            createdAt: new Date() // Representação local para exibição imediata
+          };
+
+          setServices([newService, ...services]);
+          console.log('Serviço adicionado com sucesso após criar a coleção!');
+        }
+      }
+
+      // Fechar modal e limpar serviço atual
+      setIsModalOpen(false);
+      setCurrentService(null);
+    } catch (error) {
+      console.error('Erro ao salvar serviço:', error);
+      alert('Ocorreu um erro ao salvar o serviço. Por favor, tente novamente.');
     }
-  ];
-  
+  };
+
+  // Função para excluir um serviço
+  const handleDelete = async (serviceId) => {
+    if (window.confirm('Tem certeza que deseja excluir este serviço?')) {
+      try {
+        await deleteDoc(doc(db, 'services', serviceId));
+
+        // Remover do estado local
+        setServices(services.filter(service => service.id !== serviceId));
+        console.log('Serviço excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir serviço:', error);
+        alert('Ocorreu um erro ao excluir o serviço. Por favor, tente novamente.');
+      }
+    }
+  };
+
   // Colunas para a tabela de serviços
   const columns = [
     {
@@ -111,77 +211,44 @@ export default function ServicesPage() {
       header: "Ações",
       accessor: "id",
       cell: (_, row) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-3">
           <button 
-            className="p-1 text-blue-600 hover:text-blue-800"
+            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
             onClick={() => handleEdit(row)}
             title="Editar"
           >
-            <FaEdit />
+            <FaEdit size={18} />
           </button>
           <button 
-            className="p-1 text-green-600 hover:text-green-800"
+            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-md transition-colors"
             title="Visualizar"
           >
-            <FaEye />
+            <FaEye size={18} />
           </button>
           <button 
-            className="p-1 text-red-600 hover:text-red-800"
+            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-md transition-colors"
+            onClick={() => handleDelete(row.id)}
             title="Excluir"
           >
-            <FaTrash />
+            <FaTrash size={18} />
           </button>
         </div>
       )
     }
   ];
-  
-  // Função para abrir o modal de edição
-  const handleEdit = (service) => {
-    setCurrentService(service);
-    setIsModalOpen(true);
-  };
-  
-  // Função para abrir o modal de criação
-  const handleCreate = () => {
-    setCurrentService({
-      id: null,
-      title: "",
-      icon: "user-md",
-      description: "",
-      active: true,
-      featured: false
-    });
-    setIsModalOpen(true);
-  };
-  
-  // Função para fechar o modal
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setCurrentService(null);
-  };
-  
-  // Função para salvar o serviço (simulada)
-  const handleSave = () => {
-    // Aqui você implementaria a lógica para salvar no backend
-    console.log("Salvando serviço:", currentService);
-    setIsModalOpen(false);
-    setCurrentService(null);
-    // Recarregar dados ou atualizar estado local
-  };
 
   return (
-    <div>
-      <div className="mb-6 flex justify-between items-center">
+    <div className="mt-8">
+      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Gerenciar Serviços</h1>
           <p className="text-gray-600">Adicione, edite ou remova os serviços oferecidos</p>
         </div>
         <button 
           onClick={handleCreate}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors duration-300"
+          className="flex items-center px-5 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors duration-300 shadow-md text-lg font-medium w-full sm:w-auto justify-center sm:justify-start"
         >
-          <FaPlus className="mr-2" /> Adicionar Serviço
+          <FaPlus className="mr-2" size={18} /> Adicionar Serviço
         </button>
       </div>
 
@@ -192,14 +259,30 @@ export default function ServicesPage() {
         transition={{ duration: 0.5 }}
       >
         <div className="p-6">
-          <DataTable 
-            columns={columns} 
-            data={services} 
-            emptyMessage="Nenhum serviço cadastrado ainda. Clique em 'Adicionar Serviço' para começar."
-          />
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">
+              <p>{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : (
+            <DataTable 
+              columns={columns} 
+              data={services} 
+              emptyMessage="Nenhum serviço cadastrado ainda. Clique em 'Adicionar Serviço' para começar."
+            />
+          )}
         </div>
       </motion.div>
-      
+
       {/* Modal de Edição/Criação */}
       {isModalOpen && currentService && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -220,7 +303,7 @@ export default function ServicesPage() {
                 &times;
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="space-y-4">
                 <div>
@@ -233,7 +316,7 @@ export default function ServicesPage() {
                     onChange={(e) => setCurrentService({...currentService, title: e.target.value})}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ícone</label>
                   <select
@@ -249,7 +332,7 @@ export default function ServicesPage() {
                     <option value="notes-medical">Prontuário</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                   <textarea
@@ -260,7 +343,7 @@ export default function ServicesPage() {
                     onChange={(e) => setCurrentService({...currentService, description: e.target.value})}
                   />
                 </div>
-                
+
                 <div className="flex space-x-4">
                   <div className="flex items-center">
                     <input
@@ -272,7 +355,7 @@ export default function ServicesPage() {
                     />
                     <label htmlFor="active" className="ml-2 text-sm text-gray-700">Ativo</label>
                   </div>
-                  
+
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -286,7 +369,7 @@ export default function ServicesPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
               <button
                 onClick={handleCloseModal}

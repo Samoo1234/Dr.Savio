@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaSave, FaUndo, FaImage, FaEdit, FaTrash } from 'react-icons/fa';
@@ -509,8 +511,8 @@ export default function ContentEditPage() {
                 <h3 className="text-md font-medium text-gray-800 mb-3">Informações Legais</h3>
                 <TextEditor 
                   label="Texto de Copyright" 
-                  defaultValue="© 2025 Dr. Sávio Carmo. Todos os direitos reservados." 
-                  placeholder="Ex: © 2025 Nome. Todos os direitos reservados." 
+                  defaultValue=" 2025 Dr. Sávio Carmo. Todos os direitos reservados." 
+                  placeholder="Ex: 2025 Nome. Todos os direitos reservados." 
                 />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <TextEditor 

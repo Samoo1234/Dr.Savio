@@ -2,10 +2,17 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FaFacebookF, FaInstagram, FaTwitter, FaLinkedinIn, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTwitter, FaLinkedinIn, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaUserCog } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
 
 const Footer = () => {
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState(2025); // Valor padrão para SSR
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+    setIsMounted(true);
+  }, []);
   
   const footerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -24,6 +31,27 @@ const Footer = () => {
     visible: { opacity: 1, y: 0 }
   };
   
+  // Renderiza uma versão simplificada no servidor ou durante a hidratação
+  if (!isMounted) {
+    return (
+      <footer className="bg-secondary-900 text-white pt-16 pb-8">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            {/* Versão simplificada para SSR */}
+          </div>
+          <div className="border-t border-gray-700 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <p className="text-gray-400 text-sm mb-4 md:mb-0">
+                &copy; 2025 Dr. Sávio Carmo. Todos os direitos reservados.
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+  
+  // Versão completa renderizada apenas no cliente
   return (
     <footer className="bg-secondary-900 text-white pt-16 pb-8">
       <div className="container mx-auto px-4 md:px-6">
@@ -131,7 +159,7 @@ const Footer = () => {
             <p className="text-gray-400 text-sm mb-4 md:mb-0">
               &copy; {currentYear} Dr. Sávio Carmo. Todos os direitos reservados.
             </p>
-            <div className="flex space-x-6">
+            <div className="flex space-x-6 items-center">
               <Link href="/termos" className="text-gray-400 hover:text-primary-400 text-sm transition-colors duration-300">
                 Termos de Uso
               </Link>
@@ -140,6 +168,13 @@ const Footer = () => {
               </Link>
               <Link href="/cookies" className="text-gray-400 hover:text-primary-400 text-sm transition-colors duration-300">
                 Política de Cookies
+              </Link>
+              <Link 
+                href="/admin" 
+                className="text-gray-400 hover:text-primary-400 text-sm transition-colors duration-300 ml-2"
+                title="Área Administrativa"
+              >
+                <FaUserCog className="text-gray-500 hover:text-primary-400" />
               </Link>
             </div>
           </div>

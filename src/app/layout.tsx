@@ -1,6 +1,13 @@
 import '../styles/globals.css';
 import { Inter, Merriweather } from 'next/font/google';
 import { Metadata } from 'next';
+import dynamic from 'next/dynamic';
+
+// Importar o AttributeRemover com SSR desativado para evitar problemas de hidratação
+const AttributeRemover = dynamic(
+  () => import('../components/AttributeRemover'),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,7 +35,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${merriweather.variable}`}>
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body>
+        <AttributeRemover />
         {children}
       </body>
     </html>

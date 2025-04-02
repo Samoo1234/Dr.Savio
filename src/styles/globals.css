@@ -57,6 +57,41 @@ body {
   }
 }
 
+/* Animações CSS para substituir o Framer Motion */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation-name: fadeIn;
+  animation-duration: 0.5s;
+  animation-fill-mode: forwards;
+}
+
+.animate-scaleIn {
+  animation-name: scaleIn;
+  animation-duration: 0.5s;
+  animation-fill-mode: forwards;
+}
+
 /* Animations */
 .fade-in {
   animation: fadeIn 0.5s ease-in-out;
