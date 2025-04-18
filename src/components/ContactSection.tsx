@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+import { saveContactMessage } from '../services/contactService';
 
 const ContactSection = () => {
   const ref = useRef(null);
@@ -26,12 +27,14 @@ const ContactSection = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulação de envio do formulário
-    setTimeout(() => {
+    setSubmitError('');
+    try {
+      // Salvar mensagem no Firestore
+      await saveContactMessage(formData);
+      // Aqui você pode futuramente disparar um envio de email
       setIsSubmitting(false);
       setSubmitSuccess(true);
       setFormData({
@@ -41,13 +44,16 @@ const ContactSection = () => {
         subject: '',
         message: ''
       });
-      
       // Resetar o estado de sucesso após 5 segundos
       setTimeout(() => {
         setSubmitSuccess(false);
       }, 5000);
-    }, 1500);
+    } catch (error) {
+      setIsSubmitting(false);
+      setSubmitError('Ocorreu um erro ao enviar sua mensagem. Tente novamente ou entre em contato por outro canal.');
+    }
   };
+
   
   const contactInfo = [
     {

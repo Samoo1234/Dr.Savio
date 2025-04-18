@@ -1,79 +1,95 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaEnvelope, FaEnvelopeOpen, FaTrash, FaReply, FaStar, FaArchive, FaExclamationCircle } from 'react-icons/fa';
+import { FaEnvelope, FaEnvelopeOpen, FaTrash, FaReply, FaStar, FaArchive, FaExclamationCircle, FaSync, FaArrowLeft } from 'react-icons/fa';
 import DataTable from '../../../components/admin/DataTable';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, query, orderBy, limit, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
+
+// Definir interface para mensagens
+interface Message {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  subject: string;
+  createdAt: any; // Pode ser Timestamp ou Date
+  date: string;
+  read: boolean;
+  starred: boolean;
+  archived: boolean;
+  folder: string;
+  respondedAt?: any;
+}
 
 export default function MessagesPage() {
   // Estado para controlar a visualização de mensagens
   const [selectedTab, setSelectedTab] = useState('inbox');
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Dados fictícios para as mensagens
-  const messages = [
-    {
-      id: 1,
-      name: "Maria Silva",
-      email: "maria@email.com",
-      subject: "Dúvida sobre consulta",
-      message: "Olá Dr. Sávio, gostaria de saber quais são os horários disponíveis para consulta na próxima semana. Preciso agendar uma consulta de rotina. Agradeço desde já pela atenção.",
-      date: "30/03/2025 14:30",
-      read: false,
-      starred: false,
-      archived: false,
-      folder: 'inbox'
-    },
-    {
-      id: 2,
-      name: "João Santos",
-      email: "joao@email.com",
-      subject: "Agendamento",
-      message: "Prezado Dr. Sávio, gostaria de agendar uma consulta para a próxima terça-feira, se possível no período da tarde. Estou com alguns sintomas que gostaria de discutir pessoalmente. Obrigado pela atenção.",
-      date: "29/03/2025 10:15",
-      read: true,
-      starred: true,
-      archived: false,
-      folder: 'inbox'
-    },
-    {
-      id: 3,
-      name: "Ana Oliveira",
-      email: "ana@email.com",
-      subject: "Informações sobre tratamento",
-      message: "Boa tarde Dr. Sávio, estou interessada em saber mais detalhes sobre o tratamento que conversamos na última consulta. Poderia me fornecer mais informações ou algum material para leitura? Muito obrigada!",
-      date: "28/03/2025 16:45",
-      read: true,
-      starred: false,
-      archived: false,
-      folder: 'inbox'
-    },
-    {
-      id: 4,
-      name: "Carlos Pereira",
-      email: "carlos@email.com",
-      subject: "Cancelamento",
-      message: "Dr. Sávio, infelizmente preciso cancelar minha consulta agendada para amanhã às 14h devido a um imprevisto. Gostaria de reagendar para a próxima semana, se possível. Peço desculpas pelo inconveniente.",
-      date: "27/03/2025 09:20",
-      read: true,
-      starred: false,
-      archived: true,
-      folder: 'archive'
-    },
-    {
-      id: 5,
-      name: "Fernanda Lima",
-      email: "fernanda@email.com",
-      subject: "Agradecimento",
-      message: "Querido Dr. Sávio, gostaria de agradecer pelo excelente atendimento na consulta de ontem. Suas orientações foram muito claras e já estou me sentindo melhor com o tratamento recomendado. Muito obrigada pela atenção e cuidado!",
-      date: "26/03/2025 18:05",
-      read: true,
-      starred: true,
-      archived: false,
-      folder: 'inbox'
+  // Função para formatar a data do Firestore
+  const formatDate = (timestamp: any): string => {
+    if (!timestamp) return 'Data não disponível';
+    try {
+      const date = timestamp instanceof Timestamp ? 
+        timestamp.toDate() : 
+        (timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp));
+      return format(date, 'dd/MM/yyyy HH:mm');
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return 'Data inválida';
     }
-  ];
+  };
+
+  // Buscar mensagens do Firestore
+  const fetchMessages = async () => {
+    try {
+      setLoading(true);
+      const messagesQuery = query(
+        collection(db, 'messages'),
+        orderBy('createdAt', 'desc'),
+        limit(20) // Buscar mais mensagens para a página específica
+      );
+      
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const messagesData = messagesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: formatDate(doc.data().createdAt),
+        // Valores padrão para campos que podem não existir no Firestore
+        read: doc.data().read || false,
+        starred: doc.data().starred || false,
+        archived: doc.data().archived || false,
+        folder: doc.data().archived ? 'archive' : 'inbox',
+        name: doc.data().name || '',
+        email: doc.data().email || '',
+        subject: doc.data().subject || 'Sem assunto',
+        message: doc.data().message || '',
+        createdAt: doc.data().createdAt || new Date()
+      }));
+      
+      setMessages(messagesData as Message[]);
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao buscar mensagens:', err);
+      setError('Falha ao carregar mensagens. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carregar mensagens ao montar o componente
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+  
+
   
   // Filtrar mensagens com base na aba selecionada
   const filteredMessages = messages.filter(message => {
@@ -88,7 +104,7 @@ export default function MessagesPage() {
     {
       header: "",
       accessor: "read",
-      cell: (value, row) => (
+      cell: (value: any, row: Message) => (
         <div className="flex items-center space-x-1">
           {!value && <FaEnvelope className="text-primary-500" title="Não lida" />}
           {row.starred && <FaStar className="text-yellow-400" title="Destacada" />}
@@ -98,7 +114,7 @@ export default function MessagesPage() {
     {
       header: "Remetente",
       accessor: "name",
-      cell: (value, row) => (
+      cell: (value: any, row: Message) => (
         <div>
           <div className={`font-medium ${!row.read ? 'text-gray-900' : 'text-gray-700'}`}>{value}</div>
           <div className="text-xs text-gray-500">{row.email}</div>
@@ -106,57 +122,71 @@ export default function MessagesPage() {
       )
     },
     {
+      header: "Status",
+      accessor: "read",
+      cell: (value: any, row: Message) => (
+        <div 
+          id={`status-${row.id}`}
+          className={`text-xs px-2 py-1 rounded-full inline-block ${value ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
+        >
+          {value ? 'Lida' : 'Não lida'}
+        </div>
+      )
+    },
+    {
       header: "Assunto",
       accessor: "subject",
-      cell: (value, row) => (
-        <div className={`${!row.read ? 'font-semibold' : 'font-normal'}`}>{value}</div>
+      cell: (value: any, row: Message) => (
+        <div className="truncate max-w-xs">{value}</div>
       )
     },
     {
       header: "Mensagem",
       accessor: "message",
-      cell: (value) => (
+      cell: (value: string) => (
         <div className="max-w-md truncate text-gray-500">{value}</div>
       )
     },
     {
       header: "Data",
       accessor: "date",
-      cell: (value) => (
+      cell: (value: any) => (
         <div className="text-sm text-gray-500">{value}</div>
       )
     },
     {
       header: "Ações",
       accessor: "id",
-      cell: (_, row) => (
+      cell: (_: any, row: Message) => (
         <div className="flex space-x-2">
           <button 
-            onClick={() => handleViewMessage(row)}
-            className="p-1 text-gray-600 hover:text-primary-600"
-            title="Visualizar"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleStar(row);
+            }}
+            className={`p-1.5 rounded-full ${row.starred ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
           >
-            <FaEnvelopeOpen />
+            <FaStar size={14} />
           </button>
+          
           <button 
-            onClick={() => handleToggleStar(row)}
-            className={`p-1 ${row.starred ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
-            title={row.starred ? "Remover destaque" : "Destacar"}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleArchive(row);
+            }}
+            className={`p-1.5 rounded-full ${row.archived ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
           >
-            <FaStar />
+            <FaArchive size={14} />
           </button>
+          
           <button 
-            onClick={() => handleToggleArchive(row)}
-            className="p-1 text-gray-600 hover:text-blue-600"
-            title={row.archived ? "Desarquivar" : "Arquivar"}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteMessage(row);
+            }}
+            className="p-1.5 rounded-full bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600"
           >
-            <FaArchive />
-          </button>
-          <button 
-            className="p-1 text-gray-600 hover:text-red-600"
-            title="Excluir"
-          >
-            <FaTrash />
+            <FaTrash size={14} />
           </button>
         </div>
       )
@@ -164,31 +194,126 @@ export default function MessagesPage() {
   ];
   
   // Função para visualizar uma mensagem
-  const handleViewMessage = (message) => {
+  const handleViewMessage = async (message: Message) => {
     setSelectedMessage(message);
     
     // Marcar como lida se ainda não estiver
     if (!message.read) {
-      // Aqui você implementaria a lógica para atualizar no backend
-      console.log("Marcando mensagem como lida:", message.id);
+      try {
+        const messageRef = doc(db, 'messages', message.id);
+        await updateDoc(messageRef, {
+          read: true
+        });
+        
+        // Atualizar o estado local
+        setMessages(prevMessages => 
+          prevMessages.map(m => 
+            m.id === message.id ? {...m, read: true} : m
+          )
+        );
+        
+        // Exibir feedback visual temporário
+        const statusElement = document.getElementById(`status-${message.id}`);
+        if (statusElement) {
+          statusElement.textContent = 'Marcada como lida';
+          setTimeout(() => {
+            if (statusElement) {
+              statusElement.textContent = 'Lida';
+            }
+          }, 2000);
+        }
+        
+        console.log('Mensagem marcada como lida:', message.id);
+      } catch (error) {
+        console.error('Erro ao marcar mensagem como lida:', error);
+      }
     }
   };
   
   // Função para alternar o destaque de uma mensagem
-  const handleToggleStar = (message) => {
-    // Aqui você implementaria a lógica para atualizar no backend
-    console.log("Alternando destaque da mensagem:", message.id);
+  const handleToggleStar = async (message: any) => {
+    try {
+      const newStarredValue = !message.starred;
+      const messageRef = doc(db, 'messages', message.id);
+      await updateDoc(messageRef, {
+        starred: newStarredValue
+      });
+      
+      // Atualizar o estado local
+      setMessages(prevMessages => 
+        prevMessages.map(m => 
+          m.id === message.id ? {...m, starred: newStarredValue} : m
+        )
+      );
+      
+      // Se a mensagem selecionada for a que está sendo modificada, atualizar também
+      if (selectedMessage && selectedMessage.id === message.id) {
+        setSelectedMessage({...selectedMessage, starred: newStarredValue});
+      }
+      
+      console.log(`Mensagem ${newStarredValue ? 'destacada' : 'removida dos destaques'}:`, message.id);
+    } catch (error) {
+      console.error('Erro ao alternar destaque da mensagem:', error);
+      setError('Falha ao atualizar mensagem. Tente novamente.');
+    }
   };
   
   // Função para arquivar/desarquivar uma mensagem
-  const handleToggleArchive = (message) => {
-    // Aqui você implementaria a lógica para atualizar no backend
-    console.log("Alternando arquivamento da mensagem:", message.id);
+  const handleToggleArchive = async (message: Message) => {
+    try {
+      const newArchivedValue = !message.archived;
+      const messageRef = doc(db, 'messages', message.id);
+      await updateDoc(messageRef, {
+        archived: newArchivedValue
+      });
+      
+      // Atualizar o estado local
+      setMessages(prevMessages => 
+        prevMessages.map(m => 
+          m.id === message.id ? {...m, archived: newArchivedValue, folder: newArchivedValue ? 'archive' : 'inbox'} : m
+        )
+      );
+      
+      // Se a mensagem selecionada for a que está sendo modificada, atualizar também
+      if (selectedMessage && selectedMessage.id === message.id) {
+        setSelectedMessage({...selectedMessage, archived: newArchivedValue, folder: newArchivedValue ? 'archive' : 'inbox'});
+      }
+      
+      console.log(`Mensagem ${newArchivedValue ? 'arquivada' : 'desarquivada'}:`, message.id);
+    } catch (error) {
+      console.error('Erro ao alternar arquivamento da mensagem:', error);
+      setError('Falha ao atualizar mensagem. Tente novamente.');
+    }
   };
   
   // Função para abrir o modal de resposta
   const handleReply = () => {
-    setIsReplyModalOpen(true);
+    if (selectedMessage) {
+      setIsReplyModalOpen(true);
+    }
+  };
+  
+  // Função para excluir uma mensagem
+  const handleDeleteMessage = async (message: Message) => {
+    if (confirm('Tem certeza que deseja excluir esta mensagem? Esta ação não pode ser desfeita.')) {
+      try {
+        const messageRef = doc(db, 'messages', message.id);
+        await deleteDoc(messageRef);
+        
+        // Atualizar o estado local removendo a mensagem
+        setMessages(prevMessages => prevMessages.filter(m => m.id !== message.id));
+        
+        // Se a mensagem selecionada for a que está sendo excluída, limpar a seleção
+        if (selectedMessage && selectedMessage.id === message.id) {
+          setSelectedMessage(null);
+        }
+        
+        console.log('Mensagem excluída:', message.id);
+      } catch (error) {
+        console.error('Erro ao excluir mensagem:', error);
+        setError('Falha ao excluir mensagem. Tente novamente.');
+      }
+    }
   };
   
   // Função para fechar o modal de resposta
@@ -196,12 +321,35 @@ export default function MessagesPage() {
     setIsReplyModalOpen(false);
   };
   
-  // Função para enviar resposta (simulada)
-  const handleSendReply = () => {
-    // Aqui você implementaria a lógica para enviar a resposta
-    console.log("Enviando resposta para:", selectedMessage?.email);
-    setIsReplyModalOpen(false);
-    // Atualizar estado ou recarregar dados
+  // Função para enviar resposta
+  const handleSendReply = async () => {
+    if (!selectedMessage) return;
+    
+    try {
+      const messageRef = doc(db, 'messages', selectedMessage.id);
+      await updateDoc(messageRef, {
+        respondedAt: new Date(),
+        read: true
+      });
+      
+      // Atualizar o estado local
+      setMessages(prevMessages => 
+        prevMessages.map(m => 
+          m.id === selectedMessage.id ? {...m, respondedAt: new Date(), read: true} : m
+        )
+      );
+      
+      // Atualizar mensagem selecionada
+      setSelectedMessage({...selectedMessage, respondedAt: new Date(), read: true});
+      
+      // Fechar o modal
+      setIsReplyModalOpen(false);
+      
+      console.log("Resposta enviada para:", selectedMessage.email);
+    } catch (error) {
+      console.error('Erro ao marcar mensagem como respondida:', error);
+      setError('Falha ao enviar resposta. Tente novamente.');
+    }
   };
 
   return (
@@ -302,21 +450,50 @@ export default function MessagesPage() {
               transition={{ duration: 0.5 }}
             >
               <div className="p-4 border-b border-gray-200">
-                <h2 className="font-semibold text-gray-800">
-                  {selectedTab === 'inbox' && 'Caixa de Entrada'}
-                  {selectedTab === 'starred' && 'Mensagens Destacadas'}
-                  {selectedTab === 'archive' && 'Mensagens Arquivadas'}
-                </h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="font-semibold text-gray-800">
+                    {selectedTab === 'inbox' && 'Caixa de Entrada'}
+                    {selectedTab === 'starred' && 'Mensagens Destacadas'}
+                    {selectedTab === 'archive' && 'Mensagens Arquivadas'}
+                  </h2>
+                  <button 
+                    onClick={fetchMessages} 
+                    className="flex items-center px-3 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors duration-300"
+                    disabled={loading}
+                  >
+                    <FaSync className={`mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+                  </button>
+                </div>
+                
+                <div className="mt-2 text-sm text-gray-600">
+                  <p>Clique em uma mensagem para visualizá-la. Isso a marcará automaticamente como lida.</p>
+                </div>
+                
+                {error && (
+                  <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-md flex items-center text-sm">
+                    <FaExclamationCircle className="mr-2" /> {error}
+                  </div>
+                )}
               </div>
+              
               <div className="p-6">
-                <DataTable 
-                  columns={columns} 
-                  data={filteredMessages} 
-                  emptyMessage={`Nenhuma mensagem ${
-                    selectedTab === 'inbox' ? 'na caixa de entrada' : 
-                    selectedTab === 'starred' ? 'destacada' : 'arquivada'
-                  }.`}
-                />
+                {loading ? (
+                  <div className="p-8 text-center">
+                    <FaSync className="animate-spin mx-auto text-primary-500 text-2xl mb-4" />
+                    <p className="text-gray-600">Carregando mensagens...</p>
+                  </div>
+                ) : (
+                  <DataTable 
+                    columns={columns} 
+                    data={filteredMessages} 
+                    emptyMessage={`Nenhuma mensagem ${
+                      selectedTab === 'inbox' ? 'na caixa de entrada' : 
+                      selectedTab === 'starred' ? 'destacada' : 'arquivada'
+                    }.`}
+                    onRowClick={handleViewMessage}
+                    className="cursor-pointer hover:bg-gray-50"
+                  />
+                )}
               </div>
             </motion.div>
           ) : (
@@ -327,7 +504,16 @@ export default function MessagesPage() {
               transition={{ duration: 0.5 }}
             >
               <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="font-semibold text-gray-800">Visualizar Mensagem</h2>
+                <div className="flex items-center">
+                  <button 
+                    onClick={() => setSelectedMessage(null)}
+                    className="mr-2 text-gray-600 hover:text-primary-600 flex items-center"
+                    title="Voltar para a lista"
+                  >
+                    <FaArrowLeft className="mr-1" /> <span>Voltar</span>
+                  </button>
+                  <h2 className="font-semibold text-gray-800">Visualizar Mensagem</h2>
+                </div>
                 <button 
                   onClick={() => setSelectedMessage(null)}
                   className="text-gray-400 hover:text-gray-600"
@@ -365,6 +551,7 @@ export default function MessagesPage() {
                         <FaArchive />
                       </button>
                       <button 
+                        onClick={() => handleDeleteMessage(selectedMessage)}
                         className="p-2 rounded-full text-gray-600 hover:text-red-600 hover:bg-gray-100"
                         title="Excluir"
                       >

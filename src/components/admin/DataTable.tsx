@@ -10,9 +10,11 @@ interface DataTableProps {
   columns: Column[];
   data: any[];
   emptyMessage?: string;
+  onRowClick?: (row: any) => void;
+  className?: string;
 }
 
-const DataTable = ({ columns, data, emptyMessage = "Nenhum dado encontrado" }: DataTableProps) => {
+const DataTable = ({ columns, data, emptyMessage = "Nenhum dado encontrado", onRowClick, className }: DataTableProps) => {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full">
@@ -31,7 +33,11 @@ const DataTable = ({ columns, data, emptyMessage = "Nenhum dado encontrado" }: D
         <tbody className="divide-y divide-gray-200">
           {data.length > 0 ? (
             data.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-gray-50">
+              <tr 
+                key={rowIndex} 
+                className={`${onRowClick ? 'cursor-pointer' : ''} hover:bg-gray-50 ${className || ''}`}
+                onClick={() => onRowClick && onRowClick(row)}
+              >
                 {columns.map((column, colIndex) => (
                   <td key={colIndex} className="px-4 py-3 whitespace-nowrap">
                     {column.cell ? column.cell(row[column.accessor], row) : row[column.accessor]}

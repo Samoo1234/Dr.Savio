@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { 
   FaTachometerAlt, 
   FaEdit, 
@@ -11,9 +12,63 @@ import {
   FaChartLine,
   FaFileAlt
 } from 'react-icons/fa';
+import { db } from '../../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const AdminSidebar = () => {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // Buscar o número de mensagens não lidas
+  useEffect(() => {
+    const fetchUnreadMessages = async () => {
+      try {
+        // Verificar se temos dados em cache
+        const cachedData = localStorage.getItem('unread_messages_count');
+        if (cachedData) {
+          const { count, timestamp } = JSON.parse(cachedData);
+          // Se o cache for válido (menos de 5 minutos), use-o
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            setUnreadCount(count);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Se não tiver cache ou estiver expirado, buscar do Firestore
+        const messagesQuery = query(
+          collection(db, 'messages'),
+          where('read', '==', false)
+        );
+        
+        const querySnapshot = await getDocs(messagesQuery);
+        const count = querySnapshot.size;
+        
+        // Atualizar o estado
+        setUnreadCount(count);
+        
+        // Salvar no cache
+        localStorage.setItem('unread_messages_count', JSON.stringify({
+          count,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Erro ao buscar mensagens não lidas:', error);
+        // Em caso de erro, não mostrar nenhum indicador
+        setUnreadCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUnreadMessages();
+    
+    // Atualizar a cada 5 minutos
+    const interval = setInterval(fetchUnreadMessages, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const menuItems = [
     { 
@@ -93,9 +148,9 @@ const AdminSidebar = () => {
               >
                 <span className="mr-3 text-lg">{item.icon}</span>
                 {item.title}
-                {item.title === 'Mensagens' && (
+                {item.title === 'Mensagens' && unreadCount > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                    5
+                    {unreadCount}
                   </span>
                 )}
               </Link>

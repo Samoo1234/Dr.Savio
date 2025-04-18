@@ -1,38 +1,12 @@
 import '../styles/globals.css';
-import { Inter, Merriweather } from 'next/font/google';
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
+import React from 'react';
 
-// Importar o AttributeRemover com SSR desativado para evitar problemas de hidratação
-const AttributeRemover = dynamic(
-  () => import('../components/AttributeRemover'),
-  { ssr: false }
-);
-
-// Importar o AuthProvider com SSR desativado para evitar problemas de hidratação
-const AuthProviderClient = dynamic(
-  () => import('../components/AuthProviderClient'),
-  { ssr: false }
-);
-
-// Importar o Toaster com SSR desativado para evitar problemas de hidratação
-const ToasterClient = dynamic(
-  () => import('../components/ToasterClient'),
-  { ssr: false }
-);
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-});
-
-const merriweather = Merriweather({
-  weight: ['300', '400', '700', '900'],
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-merriweather',
-});
+// Importar componentes com SSR desativado
+const AttributeRemover = dynamic(() => import('../components/AttributeRemover'), { ssr: false });
+const AuthProviderClient = dynamic(() => import('../components/AuthProviderClient'), { ssr: false });
+const ToasterClient = dynamic(() => import('../components/ToasterClient'), { ssr: false });
 
 export const metadata: Metadata = {
   title: 'Dr. Sávio Carmo - Especialista em Saúde',
@@ -46,11 +20,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${merriweather.variable}`}>
+    <html lang="pt-BR">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@300;400;700;900&display=swap" rel="stylesheet" />
       </head>
       <body>
         <AttributeRemover />

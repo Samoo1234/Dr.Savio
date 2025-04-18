@@ -1,6 +1,6 @@
 "use client";
 
-import { FaUsers, FaCalendarAlt, FaComments, FaChartLine, FaEye, FaSync } from 'react-icons/fa';
+import { FaUsers, FaCalendarAlt, FaComments, FaChartLine, FaEye, FaSync, FaEnvelope } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
@@ -26,6 +26,11 @@ const AdminDashboardClient = () => {
   const [usedCache, setUsedCache] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [allMessages, setAllMessages] = useState([]);
+  const [starredIds, setStarredIds] = useState([]);
+  const [archivedIds, setArchivedIds] = useState([]);
+  const [unansweredIds, setUnansweredIds] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState('inbox');
 
   // Verificar se o componente está montado no cliente
   useEffect(() => {
@@ -60,7 +65,7 @@ const AdminDashboardClient = () => {
       setUsedCache(false);
       
       // Usar Promise.all para paralelizar as consultas e reduzir o tempo de carregamento
-      const [messagesData, appointmentsData, counts] = await Promise.all([
+      const [messagesData, appointmentsData, counts, unreadCount] = await Promise.all([
         // Buscar mensagens recentes - LIMITE REDUZIDO PARA 3
         fetchMessages(),
         
@@ -68,8 +73,14 @@ const AdminDashboardClient = () => {
         fetchAppointments(),
         
         // Buscar contagens para estatísticas usando getCountFromServer (economia extrema)
-        fetchCounts()
+        fetchCounts(),
+        
+        // Buscar contagem de mensagens não lidas
+        fetchUnreadMessagesCount()
       ]);
+      
+      // Extrair contagens individuais
+      const [visitorCount, appointmentCount, messageCount, patientCount] = counts;
       
       // Atualizar mensagens
       setRecentMessages(messagesData);
@@ -79,10 +90,10 @@ const AdminDashboardClient = () => {
       
       // Atualizar estatísticas
       const newStats = [
-        { title: 'Visitantes', value: counts[0].toString(), icon: 'FaEye', change: '+12%', color: 'bg-blue-500' },
-        { title: 'Consultas', value: counts[1].toString(), icon: 'FaCalendarAlt', change: '+8%', color: 'bg-green-500' },
-        { title: 'Mensagens', value: counts[2].toString(), icon: 'FaComments', change: '+5%', color: 'bg-yellow-500' },
-        { title: 'Pacientes', value: counts[3].toString(), icon: 'FaUsers', change: '+15%', color: 'bg-purple-500' },
+        { title: 'Visitantes', value: visitorCount.toString(), icon: 'FaEye', change: '+12%', color: 'bg-blue-500' },
+        { title: 'Consultas', value: appointmentCount.toString(), icon: 'FaCalendarAlt', change: '+8%', color: 'bg-green-500' },
+        { title: 'Mensagens', value: messageCount.toString(), icon: 'FaComments', change: '+5%', color: 'bg-yellow-500', unreadCount: unreadCount },
+        { title: 'Pacientes', value: patientCount.toString(), icon: 'FaUsers', change: '+15%', color: 'bg-purple-500' },
       ];
       
       setStats(newStats);
@@ -158,6 +169,42 @@ const AdminDashboardClient = () => {
         }
       })
     );
+  };
+  
+  // Função para contar mensagens não lidas
+  const fetchUnreadMessagesCount = async () => {
+    try {
+      // Verificar se temos dados em cache
+      const cachedData = localStorage.getItem('unread_messages_count');
+      if (cachedData) {
+        const { count, timestamp } = JSON.parse(cachedData);
+        // Se o cache for válido (menos de 5 minutos), use-o
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          console.log('Usando cache para contagem de mensagens não lidas');
+          return count;
+        }
+      }
+      
+      // Se não tiver cache ou estiver expirado, buscar do Firestore
+      const messagesQuery = query(
+        collection(db, 'messages'),
+        where('read', '==', false)
+      );
+      
+      const snapshot = await getCountFromServer(messagesQuery);
+      const count = snapshot.data().count;
+      
+      // Salvar no cache
+      localStorage.setItem('unread_messages_count', JSON.stringify({
+        count,
+        timestamp: Date.now()
+      }));
+      
+      return count;
+    } catch (error) {
+      console.error('Erro ao contar mensagens não lidas:', error);
+      return 0;
+    }
   };
 
   // Carregar dados ao montar o componente
@@ -341,6 +388,13 @@ const AdminDashboardClient = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">{stat.title}</p>
                   <h3 className="text-white text-2xl font-bold">{stat.value}</h3>
+                  {stat.title === 'Mensagens' && stat.unreadCount > 0 && (
+                    <p className="text-white text-xs mt-1">
+                      <span className="bg-white bg-opacity-30 px-2 py-1 rounded-full">
+                        {stat.unreadCount} não {stat.unreadCount === 1 ? 'lida' : 'lidas'}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div className="p-3 bg-white bg-opacity-30 rounded-full">
                   <IconComponent className="text-white text-xl" />
@@ -357,7 +411,7 @@ const AdminDashboardClient = () => {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Mensagens recentes */}
+        {/* Resumo de Mensagens */}
         <motion.div
           className="bg-white rounded-lg shadow-md p-6"
           variants={containerVariants}
@@ -365,27 +419,46 @@ const AdminDashboardClient = () => {
           animate="visible"
         >
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Mensagens Recentes</h2>
-            <button className="text-sm text-blue-600 hover:text-blue-800">Ver todas</button>
+            <h2 className="text-lg font-semibold text-gray-800">Resumo de Mensagens</h2>
+            <a href="/admin/mensagens" className="text-sm text-blue-600 hover:text-blue-800">Ver todas</a>
           </div>
           
-          {recentMessages.length > 0 ? (
-            <div className="space-y-4">
-              {recentMessages.map((message) => (
-                <motion.div key={message.id} className="border-b pb-4" variants={itemVariants}>
-                  <div className="flex justify-between">
-                    <h3 className="font-medium text-gray-800">{message.name}</h3>
-                    <span className="text-xs text-gray-500">
-                      {formatDate(message.createdAt)} {formatTime(message.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">{message.message}</p>
-                </motion.div>
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-yellow-800">Novas Mensagens</h3>
+                  <p className="text-2xl font-bold text-yellow-700 mt-1">
+                    {stats.find(s => s.title === 'Mensagens')?.unreadCount || 0}
+                  </p>
+                </div>
+                <div className="bg-yellow-100 p-3 rounded-full">
+                  <FaEnvelope className="text-yellow-600 text-xl" />
+                </div>
+              </div>
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Nenhuma mensagem encontrada</p>
-          )}
+            
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-blue-800">Total de Mensagens</h3>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">
+                    {stats.find(s => s.title === 'Mensagens')?.value || 0}
+                  </p>
+                </div>
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <FaComments className="text-blue-600 text-xl" />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-600">
+              Última atualização: {lastUpdated || 'Nunca'}
+              {usedCache && <span className="text-xs text-yellow-600 ml-2">(Dados em cache)</span>}
+            </p>
+          </div>
         </motion.div>
 
         {/* Consultas agendadas */}

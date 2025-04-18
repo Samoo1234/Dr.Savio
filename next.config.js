@@ -11,6 +11,12 @@ const nextConfig = {
     // Isso permite que a aplicação seja compilada mesmo com erros de tipo
     ignoreBuildErrors: true,
   },
+  // Forçar o uso do SWC em vez do Babel
+  swcMinify: true,
+  compiler: {
+    // Garantir que o SWC seja usado
+    styledComponents: true,
+  },
 }
 
 module.exports = nextConfig
